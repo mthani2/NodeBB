@@ -1,5 +1,6 @@
 'use strict';
 
+
 const assert = require('assert');
 const async = require('async');
 
@@ -9,6 +10,9 @@ const user = require('../../src/user');
 const groups = require('../../src/groups');
 const password = require('../../src/password');
 const utils = require('../../src/utils');
+// const db = require('../../src/database');
+const meta = require('../../src/meta');
+
 
 const socketUser = require('../../src/socket.io/user');
 
@@ -159,5 +163,86 @@ describe('locks', () => {
 		await sleep(4 * 1000); // wait 4 seconds
 		await user.reset.send(email);
 		user.reset.minSecondsBetweenEmails = 60;
+	});
+});
+
+it('should throw an error if the reset password is the same as the current password', async () => {
+	const uid = await user.create({ username: 'samepassuser', email: 'same@pass.com', password: '123456' });
+	const code = await user.reset.generate(uid);
+
+	let err;
+	try {
+		await user.reset.commit(code, '123456'); // Attempt to reset with the same password
+	} catch (_err) {
+		err = _err;
+	}
+
+	assert.strictEqual(err.message, '[[error:reset-same-password]]');
+});
+
+describe('UserReset.updateExpiry', () => {
+	let originalSetUserField;
+	let originalDeleteObjectField;
+	let originalPasswordExpiryDays;
+
+	beforeEach(() => {
+		// Backup the original methods
+		originalSetUserField = user.setUserField;
+		originalDeleteObjectField = db.deleteObjectField;
+		originalPasswordExpiryDays = meta.config.passwordExpiryDays;
+
+		// Mock the methods
+		user.setUserField = async (uid, field, value) => {
+			// Simple mock behavior, you could also push the call details into an array for further validation
+		};
+
+		db.deleteObjectField = async (key, field) => {
+			// Simple mock behavior, same as above
+		};
+	});
+
+	afterEach(() => {
+		// Restore the original methods
+		user.setUserField = originalSetUserField;
+		db.deleteObjectField = originalDeleteObjectField;
+		meta.config.passwordExpiryDays = originalPasswordExpiryDays;
+	});
+
+	it('should set password expiry if expireDays is greater than 0', async () => {
+		const uid = 1;
+		const expireDays = 10;
+		const oneDay = 1000 * 60 * 60 * 24;
+		const expectedExpiry = Date.now() + (oneDay * expireDays);
+
+		let setFieldCalled = false;
+		user.setUserField = async (uidArg, fieldArg, valueArg) => {
+			assert.strictEqual(uidArg, uid);
+			assert.strictEqual(fieldArg, 'passwordExpiry');
+			assert.strictEqual(valueArg >= expectedExpiry - 1 && valueArg <= expectedExpiry + 1, true);
+			setFieldCalled = true;
+		};
+
+		meta.config.passwordExpiryDays = expireDays;
+
+		await user.reset.updateExpiry(uid);
+
+		assert.strictEqual(setFieldCalled, true);
+	});
+
+	it('should delete passwordExpiry if expireDays is 0 or less', async () => {
+		const uid = 1;
+
+		let deleteFieldCalled = false;
+		db.deleteObjectField = async (keyArg, fieldArg) => {
+			assert.strictEqual(keyArg, `user:${uid}`);
+			assert.strictEqual(fieldArg, 'passwordExpiry');
+			deleteFieldCalled = true;
+		};
+
+		meta.config.passwordExpiryDays = 0;
+
+		await user.reset.updateExpiry(uid);
+
+		assert.strictEqual(deleteFieldCalled, true);
 	});
 });
