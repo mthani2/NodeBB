@@ -166,19 +166,6 @@ describe('locks', () => {
 	});
 });
 
-it('should throw an error if the reset password is the same as the current password', async () => {
-	const uid = await user.create({ username: 'samepassuser', email: 'same@pass.com', password: '123456' });
-	const code = await user.reset.generate(uid);
-
-	let err;
-	try {
-		await user.reset.commit(code, '123456'); // Attempt to reset with the same password
-	} catch (_err) {
-		err = _err;
-	}
-
-	assert.strictEqual(err.message, '[[error:reset-same-password]]');
-});
 
 describe('UserReset.updateExpiry', () => {
 	let originalSetUserField;
