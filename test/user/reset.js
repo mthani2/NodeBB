@@ -10,7 +10,6 @@ const user = require('../../src/user');
 const groups = require('../../src/groups');
 const password = require('../../src/password');
 const utils = require('../../src/utils');
-// const db = require('../../src/database');
 const meta = require('../../src/meta');
 
 
