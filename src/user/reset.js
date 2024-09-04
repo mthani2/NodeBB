@@ -131,7 +131,7 @@ UserReset.commit = async function (code, password) {
 };
 
 UserReset.updateExpiry = async function (uid) {
-	console.log("MOZA_ALTHANI");
+	console.log('MOZA_ALTHANI');
 	const expireDays = meta.config.passwordExpiryDays;
 	if (expireDays > 0) {
 		const oneDay = 1000 * 60 * 60 * 24;
